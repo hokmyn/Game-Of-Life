@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="application-name" content="Game of Life" />
+    <meta name="author" content="Denis Kalinin" />
+    <title>Game of Life</title>
+    <!-- stylesheets -->    
+    <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body>
+    <div id="wrapper"></div>
+    <!-- Javascript -->
+    <script src="https://unpkg.com/babel-core@5.8.38/browser.min.js"></script>
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.2/react.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.4.2/react-dom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.3.6/marked.min.js"></script>
+    <script type="text/babel">
+      let i;
+let j;
+let k;
+let gameArr;
+let cellWidth = 30;
+let timerId = null;
+let delay = 1000;
+
+class GameOfLife extends React.Component {
+  constructor (props) {
+    super(props);
+    this.state = {
+      size: 20,
+      board: [],
+      genCount: 0,
+      isCleared: false,
+      isRunning: false
+    }
+    this.onClickPlBtn = this.onClickPlBtn.bind(this);
+    this.onClickBoard = this.onClickBoard.bind(this);
+    this.onChangeSelect = this.onChangeSelect.bind(this);
+  }
+  
+  componentDidMount() {    
+    gameArr = this.createRndArr(this.state.size);
+    this.setState({
+      board: gameArr
+    });
+  }
+  
+  onChangeSelect(target) {
+    $(".nav a:first-child").text() == "Pause" && $(".nav a:first-child").text("Play");
+    if(timerId) {
+      clearInterval(timerId);
+    }
+    if($(target).val() == "Glider") {
+      gameArr = this.createEmptyArr(this.state.size);
+    } else {
+      gameArr = this.createRndArr(this.state.size);
+    }
+    this.setState({
+      board: gameArr,
+      genCount: 0
+    });
+  }
+  
+  onClickSpBtn(target) {
+    $(".speed a").removeClass("active");
+    $(target).addClass("active");
+    delay = parseInt(target.id);
+    if(timerId) {
+      clearInterval(timerId);
+    }
+    if($(".nav a:first-child").text() == "Pause") {
+      timerId = setInterval(() => this.doTurns(), delay);
+    }
+  }
+  
+  onClickSzBtn(target) {
+    $(".size a").removeClass("active");
+    $(target).addClass("active");
+    $(".nav a:first-child").text() == "Pause" && $(".nav a:first-child").text("Play");
+    if(timerId) {
+      clearInterval(timerId);
+    }
+    this.setState({
+      size: parseInt(target.id),
+      genCount: 0
+    });
+    switch(parseInt(target.id)) {
+      case 20:
+        cellWidth = 30;        
+        break;
+      case 30:
+        cellWidth = 24;        
+        break;
+      case 40:
+        cellWidth = 18;        
+        break;      
+    }
+    gameArr = ($("select :selected").val() == "Glider") ? this.createEmptyArr(parseInt(target.id)) : this.createRndArr(parseInt(target.id));
+    this.setState({
+      board: gameArr
+    });
+  }
+  
+  onClickStBtn() {
+    $(".nav a:first-child").text() == "Pause" && $(".nav a:first-child").text("Play");
+    if(timerId) {
+      clearInterval(timerId);
+    }
+    this.doTurns();
+    this.setState({
+      isRunning: true
+    });
+  }
+  
+  onClickClBtn() {
+    $(".nav a:first-child").text() == "Pause" && $(".nav a:first-child").text("Play");
+    if(timerId) {
+      clearInterval(timerId);
+    }
+    gameArr = [];
+    for(i = 0; i < this.state.size; i++) {
+      gameArr[i] = [];
+      for(j = 0; j < this.state.size; j++) {      
+        gameArr[i].push(0);
+      }
+    }
+    this.setState({
+      genCount: 0,
+      board: gameArr,
+      isCleared: true
+    });
+    $("td").removeClass("alive");
+  }
+  
+  onClickBoard(e) {
+    if(this.state.isCleared) {
+      $(e.target).toggleClass("alive");
+    }
+  }
+  
+  onClickPlBtn(target) {    
+    $(target).text() == "Play" ? $(target).text("Pause") : $(target).text("Play");
+    if($(target).text() == "Pause") {
+      if(this.state.isCleared) {
+        gameArr = [];
+        for(i = 0; i < this.state.size; i++) {
+          gameArr[i] = [];
+          for(j = 0; j < this.state.size; j++) {
+            ($(`tr:nth-child(${i+1}) td:nth-child(${j+1})`).hasClass('alive')) ? gameArr[i].push(1) : gameArr[i].push(0);
+          }
+        }        
+      } else if(!this.state.isRunning) {
+        gameArr = ($("select :selected").val() == "Glider") ? this.createEmptyArr(this.state.size) : this.createRndArr(this.state.size);
+      } else {
+        gameArr = this.state.board;
+      }
+      this.setState({
+        board: gameArr,
+        isCleared: false
+      });
+      timerId = setInterval(() => this.doTurns(), delay);
+    } else {
+      clearInterval(timerId);
+      $(target).text("Play");
+      this.setState({
+        isRunning: true
+      });
+    }   
+  }
+  
+  doTurns() {  
+  let sum = null;
+  let nextGen = [];
+  let size = this.state.size;
+  let board = this.state.board;
+  let genCount = this.state.genCount;
+  for(i = 0; i < size; i++) {
+    nextGen[i] = [];
+    for(j = 0; j < size; j++) {
+      if(i == 0) {
+        if(j == 0) {
+          sum = board[i][j+1] + board[i+1][j] + board[i+1][j+1];
+        } else if(j == size - 1) {
+          sum = board[i][j-1] + board[i+1][j] + board[i+1][j-1];
+        } else {
+          sum = board[i][j-1] + board[i][j+1] + board[i+1][j] + board[i+1][j-1] + board[i+1][j+1];
+        }
+      } else if(j == 0) {
+        if(i == size - 1) {
+          sum = board[i-1][j] + board[i-1][j+1] + board[i][j+1];
+        } else {
+          sum = board[i][j+1] + board[i-1][j] + board[i-1][j+1] + board[i+1][j] + board[i+1][j+1];
+        }
+      } else if(i == size - 1) {
+        if(j == size - 1) {
+          sum = board[i][j-1] + board[i-1][j] + board[i-1][j-1];
+        } else {
+          sum = board[i][j-1] + board[i][j+1] + board[i-1][j] + board[i-1][j-1] + board[i-1][j+1];
+        }
+      } else if(j == size - 1) {        
+         sum = board[i][j-1] + board[i-1][j] + board[i-1][j-1] + board[i+1][j] + board[i+1][j-1];        
+      } else {
+        sum = board[i][j-1] + board[i][j+1] + board[i-1][j] + board[i-1][j-1] + board[i-1][j+1] + board[i+1][j] + board[i+1][j-1] + board[i+1][j+1];
+      }
+      if(board[i][j] == 1) {                  
+        if(sum == 2 || sum == 3) {
+          nextGen[i].push(1);
+          continue;
+        } 
+      } else {
+        if(sum == 3) {
+          nextGen[i].push(1);
+          continue;
+        }                   
+      }
+      nextGen[i].push(0);
+    }
+  }
+  genCount++;
+  this.setState({
+    board: nextGen,
+    genCount: genCount
+  });    
+}
+  createRndArr(size) {
+    let rndArr = [];
+    for(i = 0; i < size; i++) {
+      rndArr[i] = [];
+      for(j = 0; j < size; j++) {      
+        Math.round(Math.random()) == 1 ? rndArr[i].push(1) : rndArr[i].push(0);
+      }
+    }    
+    return rndArr;
+  }
+  
+  createEmptyArr(size) {
+    let empArr = [];
+    for(i = 0; i < size; i++) {
+      empArr[i] = [];
+      for(j = 0; j < size; j++) {      
+       empArr[i].push(0);
+      }
+    }
+    empArr[0][0] = 1; empArr[1][1] = 1; empArr[1][2] = 1; empArr[2][0] = 1; empArr[2][1] = 1;
+    return empArr;
+  }
+  
+  render() {
+    let gameBoard = this.state.board.map((item, index) => {
+      let row = item.map((item, index) => {
+        return(
+          <td key={index} style={{width: cellWidth, height: cellWidth}} className={item === 1 ? "alive" : "dead"}></td>
+        );               
+      });
+      return(
+        <tr key={index} className={index}>{row}</tr>
+      );
+    });
+    return(
+      <div>
+        <div className="wrapper">
+          <Nav genCount={this.state.genCount}
+            onChangeSelect = {this.onChangeSelect}
+            onClickPlBtn = {this.onClickPlBtn}
+            onClickClBtn = {this.onClickClBtn.bind(this)}
+            onClickSzBtn = {this.onClickSzBtn.bind(this)}
+            onClickStBtn = {this.onClickStBtn.bind(this)}
+            onClickSpBtn = {this.onClickSpBtn.bind(this)} />
+          <table onClick = {this.onClickBoard} className="board">            
+            {gameBoard}
+          </table>
+        </div>
+      </div>
+    );
+  }
+}
+
+class Nav extends React.Component {
+  constructor(props) {
+    super(props);
+    this.onPlayClick = this.onPlayClick.bind(this);
+    this.onClearClick = this.onClearClick.bind(this);
+    this.onSizeClick = this.onSizeClick.bind(this);
+    this.onSpeedClick = this.onSpeedClick.bind(this);
+    this.onStepClick = this.onStepClick.bind(this);
+    this.onChangeSelect = this.onChangeSelect.bind(this);
+  }
+  onChangeSelect(e) {
+    this.props.onChangeSelect(e.target);
+  }
+  onPlayClick(e) {
+    this.props.onClickPlBtn(e.target);
+  }
+  onClearClick() {
+    this.props.onClickClBtn();
+  }
+  onSizeClick(e) {
+    this.props.onClickSzBtn(e.target);    
+  }
+  onSpeedClick(e) {
+    this.props.onClickSpBtn(e.target);
+  }
+  onStepClick() {
+    this.props.onClickStBtn();
+  }
+  render() {
+    return (
+      <div className="setup">
+        <p>Generation: <span>{this.props.genCount}</span></p>
+        <select onChange={this.onChangeSelect}>
+          <option>Random</option>
+          <option>Glider</option>
+        </select>
+        <p className="nav">              
+          <a onClick={this.onPlayClick}>Play</a>
+          <a onClick={this.onStepClick}>Step</a>
+          <a onClick={this.onClearClick}>Clear</a>
+        </p>
+        <p>Speed</p>
+        <p onClick = {this.onSpeedClick} className="speed">
+          <a id="1000" className="active">Slow</a>
+          <a id="500">Normal</a>
+          <a id="250">Fast</a>
+        </p>
+        <p>Grid Size</p>
+        <p onClick = {this.onSizeClick} className="size">
+          <a className="active" id="20">20x20</a>
+          <a id="30">30x30</a>
+          <a id="40">40x40</a>
+        </p>
+      </div>
+    );
+  }
+}
+
+ReactDOM.render(
+  <GameOfLife />,
+  document.getElementById("container")
+)
+  </script>
+</body>
+</html>
